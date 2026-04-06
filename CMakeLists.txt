@@ -20,6 +20,10 @@ set(CAPSTONE_BUILD_STATIC ON CACHE BOOL "" FORCE)
 set(CAPSTONE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(CAPSTONE_BUILD_CSTOOL OFF CACHE BOOL "" FORCE)
 
+if(NOT PROJECT_VERSION OR "${PROJECT_VERSION}" STREQUAL "")
+    set(PROJECT_VERSION "5.0.6") 
+endif()
+
 FetchContent_MakeAvailable(capstone)
 
 # 如果使用的是 MinGW 编译器，开启静态链接，把运行库打包进 exe
