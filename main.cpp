@@ -20,7 +20,6 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#include <shellapi.h>
 #endif
 
 // =========================
@@ -40,9 +39,6 @@ static constexpr uint32_t SHT_SYMTAB_VAL = 2;
 static constexpr uint32_t SHT_DYNSYM_VAL = 11;
 
 static constexpr uint64_t SHN_UNDEF_VAL = 0;
-
-static constexpr uint16_t EM_386_VAL = 3;        // Intel 80386 (x86)
-static constexpr uint16_t EM_X86_64_VAL = 62;    // AMD x86-64
 
 #pragma pack(push, 1)
 struct Elf64_Ehdr_L {
@@ -214,7 +210,7 @@ static std::string get_cstr_from_table(const std::vector<uint8_t> &table, uint32
 
 static std::string hex_dump_prefix(const std::vector<uint8_t>& buf, size_t n = 32) {
     std::ostringstream oss;
-    size_t m = (std::min)(n, buf.size());
+    size_t m = std::min(n, buf.size());
     for (size_t i = 0; i < m; ++i) {
         if (i) oss << " ";
         oss << std::hex << std::setw(2) << std::setfill('0') << (int)buf[i];
@@ -875,10 +871,6 @@ static AnalysisResult analyze_so(const std::string &name, const std::vector<uint
         return r;
     }
 
-    if (name.find("asset") != std::string::npos) {
-		r.reasons.push_back("load from assets");
-    }
-
     std::vector<Elf64_Shdr_L> shdrs;
     shdrs.reserve(eh.e_shnum);
 
@@ -911,7 +903,7 @@ static AnalysisResult analyze_so(const std::string &name, const std::vector<uint
 
         if (si.offset + si.size <= work_buf.size() && si.size > 0) {
             si.entropy = shannon_entropy(work_buf.data() + si.offset, static_cast<size_t>(si.size));
-            r.max_section_entropy = (std::max)(r.max_section_entropy, si.entropy);
+            r.max_section_entropy = std::max(r.max_section_entropy, si.entropy);
         }
 
         section_names.push_back(si.name);
@@ -1137,7 +1129,7 @@ static AnalysisResult analyze_so(const std::string &name, const std::vector<uint
     if (contains_any_icase(section_names, sec_needles)) suspicious_section_name = 1.0;
 
     r.packer_score =
-        (std::min)(0.45, loader_hit * 0.08) +
+        std::min(0.45, loader_hit * 0.08) +
         (r.rwx_segment ? 0.20 : 0.0) +
         (r.has_init_array ? 0.08 : 0.0) +
         (r.has_jni_onload_string ? 0.05 : 0.0) +
@@ -1236,10 +1228,8 @@ static std::vector<ApkSoEntry> load_arm64_sos_from_apk(const std::string &apk_pa
         if (st.m_is_directory) continue;
 
         std::string name = st.m_filename ? st.m_filename : "";
-        if (!starts_with(name, "lib/arm64-v8a/") && !starts_with(name, "assets/")) continue;
+        if (!starts_with(name, "lib/arm64-v8a/")) continue;
         if (!ends_with(name, ".so")) continue;
-
-        if (name.find("x86") != std::string::npos || name.find("X86") != std::string::npos || name.find("x64") != std::string::npos || name.find("X64") != std::string::npos) continue;
 
         size_t out_size = 0;
         void *p = mz_zip_reader_extract_to_heap(&zip, i, &out_size, 0);
@@ -1299,7 +1289,6 @@ static std::string reason_to_zh(const std::string &reason) {
     if (reason == "high arithmetic/logical opcode density") return "算术逻辑指令密度高";
     if (reason == "so entry is actually a zip container") return "该SO条目实际是ZIP容器";
     if (reason == "capstone init failed") return "Capstone 初始化失败";
-	if (reason == "load from assets") return "从assets目录加载，可能使用了某种加固";
 
     if (reason.rfind("suspicious loader imports hit=", 0) == 0) {
         return "存在较多可疑加载器导入函数";
@@ -1363,7 +1352,7 @@ static std::string build_advice_zh(const AnalysisResult &r) {
 
 static std::string join_preview_lines(const std::vector<DisasmLine>& lines, size_t max_lines = 3) {
     std::ostringstream oss;
-    size_t n = (std::min)(lines.size(), max_lines);
+    size_t n = std::min(lines.size(), max_lines);
     for (size_t i = 0; i < n; ++i) {
         if (i) oss << " | ";
         oss << lines[i].mnemonic;
@@ -1523,112 +1512,14 @@ static void sort_results_by_risk(std::vector<AnalysisResult>& results) {
         });
 }
 
-static void save_as_json(std::ostream& os, const std::vector<AnalysisResult>& results, bool pretty = true) {
-    const char* indent1 = pretty ? "  " : "";
-    const char* indent2 = pretty ? "    " : "";
-    const char* indent3 = pretty ? "      " : "";
-    const char* indent4 = pretty ? "        " : "";
-    const char* nl = pretty ? "\n" : "";
-
-    SummaryStats stats = build_summary_stats(results);
-
-    os << "{" << nl;
-
-    os << indent1 << "\"汇总\": {" << nl;
-    os << indent2 << "\"总so数量\": " << stats.total << "," << nl;
-    os << indent2 << "\"高风险\": " << stats.high << "," << nl;
-    os << indent2 << "\"中风险\": " << stats.medium << "," << nl;
-    os << indent2 << "\"低风险\": " << stats.low << "," << nl;
-    os << indent2 << "\"容器SO数量\": " << stats.zip_so_container << "," << nl;
-    os << indent2 << "\"内层ELF成功提取数量\": " << stats.inner_elf_extracted << nl;
-    os << indent1 << "}," << nl;
-
-    os << indent1 << "\"结果\": [" << nl;
-    for (size_t i = 0; i < results.size(); ++i) {
-        const auto& r = results[i];
-
-        if (r.final_label == "SKIP_X86_ARCH") {
-            os << indent2 << "{" << nl;
-            os << indent3 << "\"so文件\": \"" << json_escape(r.so_name) << "\"," << nl;
-            os << indent3 << "\"检测结果\": \"跳过\"," << nl;
-            os << indent3 << "\"说明\": \"检测到 x86/x86_64 架构，已根据策略跳过深度分析\"" << nl;
-            os << indent2 << "}";
-        }
-        else {
-            os << indent2 << "{" << nl;
-            os << indent3 << "\"so文件\": \"" << json_escape(r.so_name) << "\"," << nl;
-            os << indent3 << "\"检测结果\": \"" << json_escape(label_to_zh(r.final_label)) << "\"," << nl;
-            os << indent3 << "\"风险等级\": \"" << json_escape(risk_level_zh(r)) << "\"," << nl;
-            os << indent3 << "\"说明\": \"" << json_escape(build_summary_zh(r)) << "\"," << nl;
-
-            if (r.is_zip_container) {
-                os << indent3 << "\"容器特征\": \"" << json_escape(r.format_note) << "\"," << nl;
-            }
-
-            os << indent3 << "\"可疑点\": [" << nl;
-            for (size_t j = 0; j < r.reasons.size(); ++j) {
-                os << indent3 << "  \"" << json_escape(reason_to_zh(r.reasons[j])) << "\"";
-                if (j + 1 != r.reasons.size()) os << ",";
-                os << nl;
-            }
-            os << indent3 << "]," << nl;
-
-            if (!r.entry_previews.empty() && (risk_level_zh(r) == "高" || risk_level_zh(r) == "中")) {
-                os << indent3 << "\"入口预览\": [" << nl;
-                size_t limit = std::min<size_t>(r.entry_previews.size(), 4);
-                for (size_t k = 0; k < limit; ++k) {
-                    const auto& ep = r.entry_previews[k];
-                    os << indent3 << "  {" << nl;
-                    os << indent4 << "\"名称\": \"" << json_escape(ep.name) << "\"," << nl;
-                    os << indent4 << "\"地址\": \"0x" << std::hex << ep.va << std::dec << "\"," << nl;
-                    os << indent4 << "\"预览\": \"" << json_escape(join_preview_lines(ep.lines, 3)) << "\"" << nl;
-                    os << indent3 << "  }";
-                    if (k + 1 != limit) os << ",";
-                    os << nl;
-                }
-                os << indent3 << "]," << nl;
-            }
-
-            if (r.vmp.analyzed && risk_level_zh(r) == "高") {
-                os << indent3 << "\"VMP分析\": {" << nl;
-                os << indent4 << "\"结论\": \"" << json_escape(r.vmp.possible ? "疑似VMP保护" : "未见明显特征") << "\"," << nl;
-                os << indent4 << "\"置信度分数\": " << std::fixed << std::setprecision(4) << r.vmp.score << "," << nl;
-                os << indent4 << "\"特征信号\": [" << nl;
-                for (size_t t = 0; t < r.vmp.signals.size(); ++t) {
-                    os << indent4 << "  \"" << json_escape(r.vmp.signals[t]) << "\"";
-                    if (t + 1 != r.vmp.signals.size()) os << ",";
-                    os << nl;
-                }
-                os << indent4 << "]" << nl;
-                os << indent3 << "}," << nl;
-            }
-
-            os << indent3 << "\"处置建议\": \"" << json_escape(build_advice_zh(r)) << "\"" << nl;
-            os << indent2 << "}";
-        }
-
-        if (i + 1 != results.size()) os << ",";
-        os << nl;
-    }
-
-    os << indent1 << "]" << nl;
-    os << "}" << nl;
-}
-
-std::string WStringToUTF8(const std::wstring& wstr) {
-    if (wstr.empty()) return "";
-    int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
-    std::string strTo(size_needed, 0);
-    WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
-    return strTo;
-}
-
 // =========================
 // main
 // =========================
-int scanner_main(std::vector<std::string> args) {
+
+int main(int argc, char *argv[]) {
+    init_console_utf8();
+
     std::string apk_path;
-<<<<<<< HEAD
     if (argc >= 2) {
         apk_path = argv[1];
     } else {
@@ -1638,19 +1529,6 @@ int scanner_main(std::vector<std::string> args) {
     //      apk_path ="D:\\tb.apk";
 
 
-=======
-    std::string save_path;
-    if (args.size() == 2) {
-        apk_path = args[1];
-    }
-    else if (args.size() == 3) {
-        apk_path = args[1];
-        save_path = args[2];
-    }
-    else {
-        apk_path = "G:\\Tools\\autojsj\\自动脚本精灵.apk";
-        save_path = "analysis_result.json";
->>>>>>> 0df73e6 (bugs fix and function updates)
     }
 
     auto sos = load_arm64_sos_from_apk(apk_path);
@@ -1664,33 +1542,9 @@ int scanner_main(std::vector<std::string> args) {
 
     for (size_t i = 0; i < sos.size(); ++i) {
         results.push_back(analyze_so(sos[i].name_in_apk, sos[i].data));
-        //std::cout << "[i] so name: " << sos[i].name_in_apk << std::endl;
     }
 
     sort_results_by_risk(results);
-    //print_all_results_json_cn(results, true);
-
-    save_as_json(std::ofstream(save_path), results, true);
-    printf("[i] Result saved to: %s\n", save_path.c_str());
-
+    print_all_results_json_cn(results, true);
     return 0;
 }
-
-#ifdef _WIN32
-int wmain(int argc, wchar_t* argvW[]) {
-    init_console_utf8();
-    std::vector<std::string> args;
-    for (int i = 0; i < argc; ++i) {
-        args.push_back(WStringToUTF8(argvW[i]));
-    }
-    // 调用实际的业务逻辑
-    return scanner_main(args);
-}
-#else
-
-int main(int argc, char* argv[]) {
-	std::vector<std::string> args(argv, argv + argc);
-	return scanner_main(args);
-}
-#endif
-
