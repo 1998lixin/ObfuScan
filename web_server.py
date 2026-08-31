@@ -360,8 +360,8 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         apk_file = form['apk']
         lang = form.getvalue('lang', 'zh')
-        if not str(apk_file.filename).lower().endswith('.apk'):
-            self.send_json({'error': True, 'message': '仅支持 .apk 文件。'}, 400)
+        if not str(apk_file.filename).lower().endswith(('.apk', '.hap')):
+            self.send_json({'error': True, 'message': '仅支持 .apk / .hap 文件。'}, 400)
             return
 
         temp_apk_path = None
@@ -891,16 +891,16 @@ class RequestHandler(BaseHTTPRequestHandler):
                         <div class="section-eyebrow" id="uploadEyebrow">SCAN CONSOLE · 本地分析</div>
                         <h2 id="uploadTitle">提交分析目标</h2>
                     </div>
-                    <p class="section-note" id="uploadNote">提取 APK 内的 Native SO，并对控制流、VM 调度器、保护意图与合法运行时证据进行交叉判定。</p>
+                    <p class="section-note" id="uploadNote">提取 APK / HAP 内的 Native SO，并对控制流、VM 调度器、保护意图与合法运行时证据进行交叉判定。</p>
                 </div>
                 <form class="upload-form" id="uploadForm" enctype="multipart/form-data">
                     <label class="upload-zone" id="uploadZone" for="apkFile" tabindex="0">
-                        <input type="file" id="apkFile" name="apk" accept=".apk,application/vnd.android.package-archive">
+                        <input type="file" id="apkFile" name="apk" accept=".apk,.hap,application/vnd.android.package-archive">
                         <span class="upload-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M5 14.5v3A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5v-3"/></svg>
                         </span>
                         <span class="upload-copy">
-                            <span class="upload-title" id="selectFileLabel">拖放 APK 到这里，或点击选择</span>
+                            <span class="upload-title" id="selectFileLabel">拖放 APK / HAP 到这里，或点击选择</span>
                             <span class="upload-hint" id="uploadHint">支持中文路径 · 文件仅在本机分析</span>
                             <span class="file-meta" id="fileMeta"></span>
                         </span>
@@ -943,8 +943,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 subtitle: '面向 Android Native 的深度静态分析，识别混淆、加壳、VMP 与异常装载链路。',
                 uploadEyebrow: 'SCAN CONSOLE · 本地分析',
                 uploadTitle: '提交分析目标',
-                uploadNote: '提取 APK 内的 Native SO，并对控制流、VM 调度器、保护意图与合法运行时证据进行交叉判定。',
-                selectFileLabel: '拖放 APK 到这里，或点击选择',
+                uploadNote: '提取 APK / HAP 内的 Native SO，并对控制流、VM 调度器、保护意图与合法运行时证据进行交叉判定。',
+                selectFileLabel: '拖放 APK / HAP 到这里，或点击选择',
                 uploadHint: '支持中文路径 · 文件仅在本机分析',
                 analyzeBtn: '启动深度扫描',
                 loadingText: '正在解析 Native 结构与组件指纹',
@@ -1031,7 +1031,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 candidateTraits: '特征',
                 suggestion: '建议',
                 selectApk: '请选择APK文件',
-                invalidApk: '请选择扩展名为 .apk 的文件',
+                invalidApk: '请选择扩展名为 .apk 或 .hap 的文件',
                 fileReady: '已选择',
                 soDetails: '点击展开完整证据',
                 emptyResults: '扫描完成，但没有返回可展示的 SO 结果。',
@@ -1047,7 +1047,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 uploadEyebrow: 'SCAN CONSOLE · LOCAL ANALYSIS',
                 uploadTitle: 'Submit Analysis Target',
                 uploadNote: 'Extract Native SO files and correlate control flow, VM dispatchers, protection intent, and legitimate-runtime evidence.',
-                selectFileLabel: 'Drop an APK here, or click to browse',
+                selectFileLabel: 'Drop an APK or HAP here, or click to browse',
                 uploadHint: 'Unicode paths supported · Processed locally',
                 analyzeBtn: 'Launch Deep Scan',
                 loadingText: 'Parsing Native structures and component fingerprints',
@@ -1134,7 +1134,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 candidateTraits: 'Traits',
                 suggestion: 'Suggestion',
                 selectApk: 'Please select an APK file',
-                invalidApk: 'Please select a file with the .apk extension',
+                invalidApk: 'Please select a file with the .apk or .hap extension',
                 fileReady: 'Selected',
                 soDetails: 'Open to inspect complete evidence',
                 emptyResults: 'The scan completed without displayable SO results.',
@@ -1385,7 +1385,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             const t = lang[currentLang];
             const apkFile = selectedFile || apkInput.files[0];
             if (!apkFile) { alert(t.selectApk); return; }
-            if (!apkFile.name.toLowerCase().endsWith('.apk')) { alert(t.invalidApk); return; }
+            if (!/\.(apk|hap)$/i.test(apkFile.name)) { alert(t.invalidApk); return; }
 
             const formData = new FormData();
             formData.append('apk', apkFile, apkFile.name);

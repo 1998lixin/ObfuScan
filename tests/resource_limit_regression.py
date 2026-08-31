@@ -58,6 +58,13 @@ def main() -> int:
         expect(payload.get("scan_status") == "OK", "ordinary APK must remain accepted")
         expect(len(payload.get("results", [])) == 1, "ordinary SO must produce one result")
 
+        hap = root / "ordinary.hap"
+        with zipfile.ZipFile(hap, "w", compression=zipfile.ZIP_STORED) as archive:
+            archive.writestr("libs/arm64-v8a/libtiny.so", b"\x7fELF" + b"\0" * 124)
+        payload = scan(scanner, hap)
+        expect(payload.get("scan_status") == "OK", "ordinary HAP must remain accepted")
+        expect(len(payload.get("results", [])) == 1, "HAP libs/ SO must produce one result")
+
         bomb = root / "compression-bomb.apk"
         with zipfile.ZipFile(bomb, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.writestr("lib/arm64-v8a/libbomb.so", b"\0" * (2 * 1024 * 1024))

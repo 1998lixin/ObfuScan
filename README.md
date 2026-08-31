@@ -11,7 +11,7 @@
 
 ## 中文
 
-ObfuScan 是面向 **Android APK Native SO 预筛选** 的静态分析工具。它扫描 `lib/arm64-v8a/` 与 `assets/` 下的 SO，结合 ELF、指令、保护特征和 VMP 结构证据排序风险，帮助逆向与安全审计人员先定位高价值目标。它不是反编译器，也不把启发式结论包装成最终定性。
+ObfuScan 是面向 **Android APK 与 HarmonyOS HAP Native SO 预筛选** 的静态分析工具。它扫描 APK 的 `lib/arm64-v8a/`、HAP 的 `libs/arm64-v8a/` 以及 `assets/` 下的 SO，结合 ELF、指令、保护特征和 VMP 结构证据排序风险，帮助逆向与安全审计人员先定位高价值目标。它不是反编译器，也不把启发式结论包装成最终定性。
 
 ---
 
@@ -39,8 +39,8 @@ python web_server.py
 #### 方法二：命令行
 
 ```bash
-ObfuScan.exe <apk_path>
-ObfuScan.exe <apk_path> --en
+ObfuScan.exe <apk_or_hap_path>
+ObfuScan.exe <apk_or_hap_path> --en
 ObfuScan.exe app.apk > result.json
 ```
 
@@ -188,7 +188,7 @@ VMP 判断不再依赖“间接跳转很多”这一类单点阈值。扫描器�
 
 | 能力 | 当前实现 |
 |------|----------|
-| APK 枚举 | `lib/arm64-v8a/*.so` 与 `assets/*.so` |
+| APK/HAP 枚举 | APK 的 `lib/arm64-v8a/*.so`、HAP 的 `libs/arm64-v8a/*.so` 与 `assets/*.so` |
 | ELF 恢复 | 文件头、段/节、熵、符号、依赖、`DT_INIT[_ARRAY]`、relocation；节表缺失时从 `PT_DYNAMIC` 恢复 |
 | PLT 排除 | 依据 `R_AARCH64_JUMP_SLOT` 排除真实 PLT 间接跳转，不猜地址范围 |
 | 指令统计 | Capstone AArch64 分支、间接转移、算术/逻辑/比较密度 |
@@ -262,7 +262,7 @@ VMP 判断不再依赖“间接跳转很多”这一类单点阈值。扫描器�
 
 ### ObfuScan
 
-ObfuScan is a static **Android APK Native SO pre-screening** tool. It scans SO files under `lib/arm64-v8a/` and `assets/`, then combines ELF, instruction, protection, and VMP-structure evidence to prioritize high-value targets for reverse engineering and security audits. It is not a decompiler and does not present heuristic findings as final attribution.
+ObfuScan is a static **Android APK and HarmonyOS HAP Native SO pre-screening** tool. It scans SO files under `lib/arm64-v8a/` (APK), `libs/arm64-v8a/` (HAP), and `assets/`, then combines ELF, instruction, protection, and VMP-structure evidence to prioritize high-value targets for reverse engineering and security audits. It is not a decompiler and does not present heuristic findings as final attribution.
 
 ---
 
@@ -290,8 +290,8 @@ The built-in server has bounded threading, idle timeouts, scan concurrency limit
 #### Method 2: Command Line
 
 ```bash
-ObfuScan.exe <apk_path>
-ObfuScan.exe <apk_path> --en
+ObfuScan.exe <apk_or_hap_path>
+ObfuScan.exe <apk_or_hap_path> --en
 ObfuScan.exe app.apk > result.json
 ```
 
@@ -439,7 +439,7 @@ Automation must check `scan_status` before interpreting `summary` and `results`.
 
 | Capability | Current implementation |
 |------------|------------------------|
-| APK enumeration | `lib/arm64-v8a/*.so` and `assets/*.so` |
+| APK/HAP enumeration | `lib/arm64-v8a/*.so` (APK), `libs/arm64-v8a/*.so` (HAP), and `assets/*.so` |
 | ELF recovery | Headers, segments/sections, entropy, symbols, dependencies, `DT_INIT[_ARRAY]`, and relocations; `PT_DYNAMIC` fallback when section tables are missing |
 | PLT exclusion | Uses `R_AARCH64_JUMP_SLOT` rather than guessed address ranges |
 | Instruction statistics | Capstone AArch64 branch, indirect-transfer, and arithmetic/logical/comparison density |

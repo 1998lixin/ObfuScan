@@ -1899,7 +1899,9 @@ static ApkScanReport analyze_arm64_sos_from_apk(const ApkInputPath &apk_path) {
         if (st.m_is_directory) continue;
 
         std::string name = st.m_filename;
-        if (!starts_with(name, "lib/arm64-v8a/") && !starts_with(name, "assets/")) continue;
+        const bool is_apk_so_path = starts_with(name, "lib/arm64-v8a/");
+        const bool is_hap_so_path = starts_with(name, "libs/arm64-v8a/");
+        if (!is_apk_so_path && !is_hap_so_path && !starts_with(name, "assets/")) continue;
         if (!ends_with(name, ".so")) continue;
 
         ++report.relevant_so_count;
@@ -2016,12 +2018,12 @@ static ApkScanReport analyze_arm64_sos_from_apk(const ApkInputPath &apk_path) {
 
 static void print_usage(const char *prog) {
     std::cout << "Usage:\n";
-    std::cout << "  " << prog << " <apk_path> [--en]\n\n";
+    std::cout << "  " << prog << " <apk_or_hap_path> [--en]\n\n";
     std::cout << "Options:\n";
     std::cout << "  --en    Output in English\n\n";
     std::cout << "Examples:\n";
     std::cout << "  " << prog << " demo.apk\n";
-    std::cout << "  " << prog << " demo.apk --en\n";
+    std::cout << "  " << prog << " demo.hap --en\n";
 }
 
 static std::string label_to_zh(const std::string &label) {
